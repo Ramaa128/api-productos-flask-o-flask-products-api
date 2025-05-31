@@ -58,63 +58,71 @@ def obtener_productos():
 @app.route('/productos/<int:id>', methods=['GET'])
 def obtener_producto(id):
     """Obtiene un producto por su ID."""
-    # CORRECCIÓN: Usar db.session.get()
     producto = db.session.get(Producto, id)
     if not producto:
         return jsonify({"error": "Producto no encontrado"}), 404
     
-    # Usar schema.dump() para serializar y luego flask.jsonify() para la respuesta.
     datos_serializados = producto_schema.dump(producto)
     return jsonify(datos_serializados), 200
 
 @app.route('/productos/<int:id>', methods=['PUT'])
 def actualizar_producto(id):
     """Actualiza un producto existente."""
-    # CORRECCIÓN: Usar db.session.get()
     producto_existente = db.session.get(Producto, id)
     if not producto_existente:
         return jsonify({"error": "Producto no encontrado"}), 404
 
     try:
         datos_json = request.json
-        # Usamos la clase ProductoSchema importada para crear una instancia de validación.
-        schema_para_validacion = ProductoSchema(partial=True) # Permite campos opcionales
-        errores_validacion = schema_para_validacion.validate(datos_json)
-        if errores_validacion:
-            return jsonify({"error": "Datos de entrada inválidos", "mensajes": errores_validacion}), 400
+        
+        # CORRECCIÓN: Usar load con una instancia de esquema configurada para validación parcial
+        # y con la sesión. unknown='EXCLUDE' ignora campos extra no definidos en el esquema.
+        schema_validador_parcial = ProductoSchema(
+            partial=True, 
+            session=db.session, 
+            unknown='EXCLUDE' 
+        )
+        
+        try:
+            # .load() validará. Si falla, lanza ValidationError.
+            # No usamos el resultado directo de 'datos_validados_dict' para asignar,
+            # sino que nos basamos en 'datos_json' para saber qué campos se intentaron actualizar.
+            # La validación asegura que los tipos y formatos de los campos enviados son correctos.
+            schema_validador_parcial.load(datos_json) 
+        except ValidationError as err:
+            return jsonify({"error": "Datos de entrada inválidos", "mensajes": err.messages}), 400
 
-        # Asignación manual de campos
+        # Asignación manual de campos usando datos_json (el JSON original recibido)
+        # para verificar qué campos se enviaron para actualizar.
         if 'nombre' in datos_json:
             producto_existente.nombre = datos_json['nombre']
         if 'descripcion' in datos_json: 
-            producto_existente.descripcion = datos_json.get('descripcion') 
+            producto_existente.descripcion = datos_json.get('descripcion') # .get() para manejar None si se envía
         if 'precio' in datos_json:
             precio_actualizado = datos_json['precio']
-            if not isinstance(precio_actualizado, (int, float)) or precio_actualizado < 0:
+            # La validación de tipo ya la hizo Marshmallow. Aquí validaciones de lógica de negocio.
+            if not isinstance(precio_actualizado, (int, float)) or precio_actualizado < 0: # Doble chequeo o si Marshmallow no fue estricto
                 return jsonify({"error": "El precio debe ser un número no negativo"}), 400
             producto_existente.precio = precio_actualizado
         if 'stock' in datos_json:
             stock_actualizado = datos_json['stock']
-            if not isinstance(stock_actualizado, int) or stock_actualizado < 0:
+            if not isinstance(stock_actualizado, int) or stock_actualizado < 0: # Doble chequeo
                 return jsonify({"error": "El stock debe ser un entero no negativo"}), 400
             producto_existente.stock = stock_actualizado
             
-    except ValidationError as err: 
-        return jsonify({"error": "Error procesando la solicitud de actualización", "mensajes": err.messages}), 400
     except Exception as e: 
+        # Captura general para otros posibles errores no previstos.
         app.logger.error(f"Error inesperado al actualizar producto ID {id}: {str(e)}")
         return jsonify({"error": "Ocurrió un error inesperado al actualizar el producto."}), 500
     
     db.session.commit()
 
-    # Usar schema.dump() para serializar y luego flask.jsonify() para la respuesta.
     datos_serializados = producto_schema.dump(producto_existente)
     return jsonify(datos_serializados), 200
 
 @app.route('/productos/<int:id>', methods=['DELETE'])
 def eliminar_producto(id):
     """Elimina un producto."""
-    # CORRECCIÓN: Usar db.session.get()
     producto_a_eliminar = db.session.get(Producto, id)
     if not producto_a_eliminar:
         return jsonify({"error": "Producto no encontrado"}), 404
@@ -132,7 +140,6 @@ def handle_marshmallow_validation(err):
 @app.errorhandler(404)
 def handle_not_found_error(err):
     """Manejador para errores 404 (Recurso no encontrado)."""
-    # err no siempre tiene .description, así que creamos un mensaje genérico.
     return jsonify(error="RecursoNoEncontrado", mensaje="El recurso solicitado no fue encontrado en la API."), 404
     
 @app.errorhandler(500)
