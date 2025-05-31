@@ -1,6 +1,6 @@
 # app.py
 import os
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify # jsonify es la función correcta de Flask
 from marshmallow.exceptions import ValidationError # Para capturar errores de validación de Marshmallow
 
 # Importaciones locales
@@ -29,8 +29,7 @@ ma.init_app(app)
 def crear_producto():
     """Crea un nuevo producto."""
     try:
-        # CORRECCIÓN: Pasar la sesión de SQLAlchemy al método load
-        # cuando load_instance=True en el esquema.
+        # Pasar la sesión de SQLAlchemy al método load cuando load_instance=True.
         nuevo_producto_obj = producto_schema.load(request.json, session=db.session)
     except ValidationError as err:
         return jsonify({"error": "Datos de entrada inválidos", "mensajes": err.messages}), 400
@@ -44,12 +43,15 @@ def crear_producto():
     db.session.add(nuevo_producto_obj)
     db.session.commit()
 
-    return producto_schema.jsonify(nuevo_producto_obj), 201
+    # Usar schema.dump() para serializar y luego flask.jsonify() para la respuesta.
+    datos_serializados = producto_schema.dump(nuevo_producto_obj)
+    return jsonify(datos_serializados), 201
 
 @app.route('/productos', methods=['GET'])
 def obtener_productos():
     """Obtiene todos los productos."""
     todos_los_productos = Producto.query.all()
+    # Para listas, productos_schema.dump() ya devuelve una lista de dicts, lista para jsonify.
     resultado = productos_schema.dump(todos_los_productos)
     return jsonify(resultado), 200
 
@@ -59,7 +61,10 @@ def obtener_producto(id):
     producto = Producto.query.get(id)
     if not producto:
         return jsonify({"error": "Producto no encontrado"}), 404
-    return producto_schema.jsonify(producto), 200
+    
+    # Usar schema.dump() para serializar y luego flask.jsonify() para la respuesta.
+    datos_serializados = producto_schema.dump(producto)
+    return jsonify(datos_serializados), 200
 
 @app.route('/productos/<int:id>', methods=['PUT'])
 def actualizar_producto(id):
@@ -92,14 +97,17 @@ def actualizar_producto(id):
                 return jsonify({"error": "El stock debe ser un entero no negativo"}), 400
             producto_existente.stock = stock_actualizado
             
-    except ValidationError as err: 
-        return jsonify({"error": "Error procesando la solicitud", "mensajes": err.messages}), 400
-    except Exception as e: 
+    except ValidationError as err: # Aunque la validación manual ya se hizo, es buena práctica por si acaso.
+        return jsonify({"error": "Error procesando la solicitud de actualización", "mensajes": err.messages}), 400
+    except Exception as e: # Captura general para otros posibles errores durante la actualización.
         app.logger.error(f"Error inesperado al actualizar producto ID {id}: {str(e)}")
         return jsonify({"error": "Ocurrió un error inesperado al actualizar el producto."}), 500
     
     db.session.commit()
-    return producto_schema.jsonify(producto_existente), 200
+
+    # Usar schema.dump() para serializar y luego flask.jsonify() para la respuesta.
+    datos_serializados = producto_schema.dump(producto_existente)
+    return jsonify(datos_serializados), 200
 
 @app.route('/productos/<int:id>', methods=['DELETE'])
 def eliminar_producto(id):
@@ -115,32 +123,46 @@ def eliminar_producto(id):
 # --- Manejadores de Errores Globales ---
 @app.errorhandler(ValidationError)
 def handle_marshmallow_validation(err):
+    """Manejador para errores de validación de Marshmallow."""
     return jsonify({"error": "Error de validación en los datos de entrada", "mensajes": err.messages}), 400
 
 @app.errorhandler(404)
 def handle_not_found_error(err):
+    """Manejador para errores 404 (Recurso no encontrado)."""
     return jsonify(error="RecursoNoEncontrado", mensaje="El recurso solicitado no fue encontrado en la API."), 404
     
 @app.errorhandler(500)
 def handle_internal_server_error(err):
-    app.logger.error(f"Error interno del servidor: {err.original_exception if hasattr(err, 'original_exception') else err}")
+    """Manejador para errores 500 (Error interno del servidor)."""
+    # Es buena práctica loggear el error original aquí para debugging
+    original_exception = err.original_exception if hasattr(err, 'original_exception') else err
+    app.logger.error(f"Error interno del servidor: {original_exception}")
     return jsonify(error="ErrorInternoDelServidor", mensaje="Ha ocurrido un error inesperado en el servidor."), 500
 
 @app.errorhandler(405)
 def handle_method_not_allowed(err):
+    """Manejador para errores 405 (Método no permitido)."""
     return jsonify(error="MetodoNoPermitido", mensaje="El método HTTP no está permitido para la URL solicitada."), 405
 
 @app.errorhandler(400) 
 def handle_bad_request(err):
-    if isinstance(err, ValidationError):
+    """Manejador para errores 400 (Solicitud incorrecta) no capturados específicamente."""
+    # Evita que este manejador capture errores de ValidationError si está definido después.
+    if isinstance(err, ValidationError): # No debería ocurrir si el de ValidationError está antes y es más específico
         return handle_marshmallow_validation(err)
+    
     mensaje = err.description if hasattr(err, 'description') and err.description else "La solicitud es incorrecta o malformada."
     return jsonify(error="SolicitudIncorrecta", mensaje=mensaje), 400
 
 # --- Creación de la base de datos ---
+# Este bloque se ejecuta una vez al iniciar la aplicación.
+# db.create_all() crea las tablas definidas en los modelos si no existen.
+# Se debe ejecutar dentro de un contexto de aplicación.
 with app.app_context():
     db.create_all()
 
 # --- Punto de entrada para ejecutar la aplicación ---
 if __name__ == '__main__':
+    # debug=True activa el modo de depuración de Flask.
+    # ¡NUNCA usar debug=True en un entorno de producción!
     app.run(debug=True)
