@@ -1,0 +1,38 @@
+# Entorno virtual de Python
+venv/
+.venv/
+env/
+.env/
+ENV/
+
+# Archivos de caché de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Archivos de base de datos SQLite (si están en la carpeta instance)
+instance/productos.db
+instance/*.sqlite
+instance/*.sqlite3
+
+# Archivos de configuración específicos del editor/IDE
+# .vscode/  # Descomenta si NO quieres compartir launch.json/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sublime-workspace
+
+# Archivos de sistema operativo
+.DS_Store
+Thumbs.db
+
+# Archivos de logs
+*.log
+logs/
+
+# Archivos de cobertura de pruebas (si los generas localmente)
+.coverage
+coverage.xml
+htmlcov/

@@ -1,0 +1,56 @@
+// .vscode/launch.json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            // Nombre de la configuración que aparecerá en el desplegable de "Run and Debug".
+            "name": "Python Debugger: Flask API Productos",
+            
+            // Tipo de depurador: "debugpy" es el nuevo estándar para Python en VS Code.
+            "type": "debugpy",
+            
+            // "launch" para iniciar la aplicación.
+            "request": "launch",
+            
+            // Indica que vamos a ejecutar un módulo de Python (flask).
+            "module": "flask",
+            
+            // Variables de entorno que se establecerán al lanzar la aplicación.
+            "env": {
+                // FLASK_APP: Especifica el archivo de entrada de tu aplicación Flask.
+                "FLASK_APP": "app.py", 
+                
+                // FLASK_DEBUG: Habilita el modo de depuración de Flask.
+                // "1" para habilitar, "0" para deshabilitar.
+                // Esto activa el recargador automático y el depurador de Werkzeug (si no se deshabilita en args).
+                "FLASK_DEBUG": "1" 
+            },
+            
+            // Argumentos que se pasarán al comando `flask run`.
+            "args": [
+                "run", // El comando de Flask para iniciar el servidor de desarrollo.
+                
+                // "--no-debugger": Deshabilita el depurador incorporado de Werkzeug.
+                // Recomendable si estás utilizando el depurador de VS Code para evitar conflictos.
+                "--no-debugger", 
+                
+                // "--no-reload": Deshabilita el recargador automático de Werkzeug.
+                // El depurador de VS Code puede manejar el reinicio.
+                // Si prefieres el recargador de Flask, puedes quitar esta línea.
+                "--no-reload"    
+            ],
+            
+            // "jinja": true habilita la depuración de plantillas Jinja2.
+            // No es estrictamente necesario para esta API, pero no hace daño.
+            "jinja": true,
+            
+            // "justMyCode": true (por defecto) enfoca el depurador en tu código de proyecto.
+            // Cámbialo a false si necesitas depurar dentro de las bibliotecas.
+            "justMyCode": true,
+
+            // "console": "integratedTerminal" (opcional, por defecto)
+            // Especifica dónde se mostrará la salida de la aplicación (stdout, stderr).
+            "console": "integratedTerminal"
+        }
+    ]
+}

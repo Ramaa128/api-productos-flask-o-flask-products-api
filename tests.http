@@ -1,0 +1,58 @@
+### Variables (opcional, pero útil)
+@baseUrl = http://127.0.0.1:5000
+@contentType = application/json
+
+### 1. Crear un nuevo producto
+# @name createProduct
+POST {{baseUrl}}/productos
+Content-Type: {{contentType}}
+
+{
+    "nombre": "Laptop Pro VSCode",
+    "descripcion": "Potente laptop para profesionales, probada desde VSCode",
+    "precio": 1250.50,
+    "stock": 40
+}
+
+### 2. Obtener todos los productos
+# @name getAllProducts
+GET {{baseUrl}}/productos
+
+### Suponiendo que el producto con ID 1 fue creado arriba
+### Puedes obtener el ID de la respuesta de createProduct y usarlo aquí
+### O probar con un ID que sepas que existe.
+@productId = 1
+
+### 3. Obtener un producto específico por ID
+# @name getProductById
+GET {{baseUrl}}/productos/{{productId}}
+
+### 4. Actualizar un producto existente
+# @name updateProduct
+PUT {{baseUrl}}/productos/{{productId}}
+Content-Type: {{contentType}}
+
+{
+    "precio": 1300.00,
+    "stock": 35
+}
+
+### 5. Intentar crear un producto con datos inválidos (precio negativo)
+# @name createProductInvalidPrice
+POST {{baseUrl}}/productos
+Content-Type: {{contentType}}
+
+{
+    "nombre": "Producto Malo",
+    "descripcion": "Con precio negativo",
+    "precio": -10.99,
+    "stock": 5
+}
+
+### 6. Intentar obtener un producto que no existe
+# @name getNonExistentProduct
+GET {{baseUrl}}/productos/9999
+
+### 7. Eliminar el producto (asegúrate que el ID es correcto)
+# @name deleteProduct
+DELETE {{baseUrl}}/productos/{{productId}}
