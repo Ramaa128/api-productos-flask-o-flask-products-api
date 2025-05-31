@@ -58,7 +58,8 @@ def obtener_productos():
 @app.route('/productos/<int:id>', methods=['GET'])
 def obtener_producto(id):
     """Obtiene un producto por su ID."""
-    producto = Producto.query.get(id)
+    # CORRECCIÓN: Usar db.session.get()
+    producto = db.session.get(Producto, id)
     if not producto:
         return jsonify({"error": "Producto no encontrado"}), 404
     
@@ -69,7 +70,8 @@ def obtener_producto(id):
 @app.route('/productos/<int:id>', methods=['PUT'])
 def actualizar_producto(id):
     """Actualiza un producto existente."""
-    producto_existente = Producto.query.get(id)
+    # CORRECCIÓN: Usar db.session.get()
+    producto_existente = db.session.get(Producto, id)
     if not producto_existente:
         return jsonify({"error": "Producto no encontrado"}), 404
 
@@ -97,9 +99,9 @@ def actualizar_producto(id):
                 return jsonify({"error": "El stock debe ser un entero no negativo"}), 400
             producto_existente.stock = stock_actualizado
             
-    except ValidationError as err: # Aunque la validación manual ya se hizo, es buena práctica por si acaso.
+    except ValidationError as err: 
         return jsonify({"error": "Error procesando la solicitud de actualización", "mensajes": err.messages}), 400
-    except Exception as e: # Captura general para otros posibles errores durante la actualización.
+    except Exception as e: 
         app.logger.error(f"Error inesperado al actualizar producto ID {id}: {str(e)}")
         return jsonify({"error": "Ocurrió un error inesperado al actualizar el producto."}), 500
     
@@ -112,7 +114,8 @@ def actualizar_producto(id):
 @app.route('/productos/<int:id>', methods=['DELETE'])
 def eliminar_producto(id):
     """Elimina un producto."""
-    producto_a_eliminar = Producto.query.get(id)
+    # CORRECCIÓN: Usar db.session.get()
+    producto_a_eliminar = db.session.get(Producto, id)
     if not producto_a_eliminar:
         return jsonify({"error": "Producto no encontrado"}), 404
 
@@ -129,12 +132,12 @@ def handle_marshmallow_validation(err):
 @app.errorhandler(404)
 def handle_not_found_error(err):
     """Manejador para errores 404 (Recurso no encontrado)."""
+    # err no siempre tiene .description, así que creamos un mensaje genérico.
     return jsonify(error="RecursoNoEncontrado", mensaje="El recurso solicitado no fue encontrado en la API."), 404
     
 @app.errorhandler(500)
 def handle_internal_server_error(err):
     """Manejador para errores 500 (Error interno del servidor)."""
-    # Es buena práctica loggear el error original aquí para debugging
     original_exception = err.original_exception if hasattr(err, 'original_exception') else err
     app.logger.error(f"Error interno del servidor: {original_exception}")
     return jsonify(error="ErrorInternoDelServidor", mensaje="Ha ocurrido un error inesperado en el servidor."), 500
@@ -147,22 +150,16 @@ def handle_method_not_allowed(err):
 @app.errorhandler(400) 
 def handle_bad_request(err):
     """Manejador para errores 400 (Solicitud incorrecta) no capturados específicamente."""
-    # Evita que este manejador capture errores de ValidationError si está definido después.
-    if isinstance(err, ValidationError): # No debería ocurrir si el de ValidationError está antes y es más específico
+    if isinstance(err, ValidationError):
         return handle_marshmallow_validation(err)
     
     mensaje = err.description if hasattr(err, 'description') and err.description else "La solicitud es incorrecta o malformada."
     return jsonify(error="SolicitudIncorrecta", mensaje=mensaje), 400
 
 # --- Creación de la base de datos ---
-# Este bloque se ejecuta una vez al iniciar la aplicación.
-# db.create_all() crea las tablas definidas en los modelos si no existen.
-# Se debe ejecutar dentro de un contexto de aplicación.
 with app.app_context():
     db.create_all()
 
 # --- Punto de entrada para ejecutar la aplicación ---
 if __name__ == '__main__':
-    # debug=True activa el modo de depuración de Flask.
-    # ¡NUNCA usar debug=True en un entorno de producción!
     app.run(debug=True)
