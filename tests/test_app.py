@@ -1,64 +1,67 @@
 # tests/test_app.py
 import pytest
-from app import app as flask_app # Importa tu instancia de la aplicación Flask
-from app import db # Importa tu instancia de la base de datos
+from app import app as flask_app, db # Tu aplicación Flask y la instancia de BD
+from models import Producto          # CORRECCIÓN: Importar el modelo Producto
 
 @pytest.fixture(scope='module')
-def app():
+def app_fixture(): # Renombrado para evitar posible confusión con 'app' de 'from app import app'
     """Configura la aplicación Flask para pruebas."""
-    # Configurar la app para un entorno de pruebas
     flask_app.config.update({
         "TESTING": True,
-        # Usar una base de datos en memoria para las pruebas o una BD de prueba separada
-        # Para simplicidad, podemos seguir usando la misma configuración de SQLite por ahora,
-        # pero idealmente se usaría una BD separada o en memoria para evitar interferencias.
-        # "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:", # Ejemplo para BD en memoria
+        # Considera usar una BD en memoria o de prueba para aislar las pruebas.
+        # "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:", 
+        # Para este ejemplo, las pruebas modificarán la BD existente.
+        # Asegúrate de que la BD se cree si no existe:
+        "SQLALCHEMY_DATABASE_URI": flask_app.config["SQLALCHEMY_DATABASE_URI"], # Usar la config existente
     })
 
-    # Aquí podrías añadir lógica para crear tablas de prueba, poblar datos iniciales, etc.
-    # si no quieres que las pruebas dependan de la BD principal.
-    # Por ahora, asumimos que db.create_all() en app.py ya creó las tablas.
+    # Crear tablas si no existen (importante si se usa una BD en memoria o una nueva)
+    with flask_app.app_context():
+        db.create_all()
 
-    yield flask_app # Proporciona la app a las pruebas
+    yield flask_app
 
-    # Código de limpieza después de que todas las pruebas en el módulo hayan corrido (opcional)
-    # Ejemplo: limpiar la base de datos de prueba
+    # Opcional: Limpieza después de todas las pruebas del módulo
     # with flask_app.app_context():
-    #     db.drop_all() # ¡Cuidado si no estás usando una BD de prueba separada!
+    # db.drop_all() # ¡CUIDADO! Esto borraría todas las tablas.
 
 @pytest.fixture(scope='module')
-def client(app):
+def client(app_fixture): # Usar el fixture renombrado
     """Proporciona un cliente de pruebas para la aplicación Flask."""
-    return app.test_client()
+    return app_fixture.test_client()
 
 @pytest.fixture(scope='module')
-def runner(app):
-    """Proporciona un ejecutor de comandos CLI de Flask (si lo necesitaras)."""
-    return app.test_cli_runner()
+def runner(app_fixture): # Usar el fixture renombrado
+    """Proporciona un ejecutor de comandos CLI de Flask."""
+    return app_fixture.test_cli_runner()
 
-# --- ¡Aquí comenzarán nuestras funciones de prueba! ---
+# --- Funciones de Prueba ---
 
 def test_obtener_productos_vacio(client):
     """
-    Prueba GET /productos cuando no hay productos en la base de datos.
-    Debería devolver una lista vacía y un estado 200 OK.
+    Prueba GET /productos cuando no hay productos.
     """
-    # Asegurémonos de que la base de datos esté limpia para esta prueba específica
-    # (Esto es un ejemplo, una mejor gestión de la BD de prueba es más avanzada)
-    with flask_app.app_context():
-        db.session.query(flask_app.extensions['sqlalchemy'].models_committed.get('Producto')).delete()
+    with flask_app.app_context(): # Usar flask_app (la instancia importada) para el contexto
+        # CORRECCIÓN: Forma más directa y común de borrar todos los productos
+        Producto.query.delete()
         db.session.commit()
 
     response = client.get('/productos')
     
     assert response.status_code == 200
-    assert response.json == [] # Esperamos una lista JSON vacía
+    assert response.json == []
     assert response.content_type == 'application/json'
 
 def test_crear_producto(client):
     """
     Prueba POST /productos para crear un nuevo producto.
     """
+    # Se recomienda limpiar la tabla o asegurar un estado conocido
+    # si las pruebas pueden interferir entre sí.
+    with flask_app.app_context():
+        Producto.query.delete()
+        db.session.commit()
+
     producto_data = {
         "nombre": "Producto de Prueba",
         "descripcion": "Descripción de prueba",
@@ -67,20 +70,18 @@ def test_crear_producto(client):
     }
     response = client.post('/productos', json=producto_data)
     
-    assert response.status_code == 201 # 201 Created
+    assert response.status_code == 201
     assert response.content_type == 'application/json'
     
-    # Verificar que los datos devueltos coincidan (excepto el ID que es autogenerado)
     response_json = response.json
     assert response_json['nombre'] == producto_data['nombre']
     assert response_json['descripcion'] == producto_data['descripcion']
     assert response_json['precio'] == producto_data['precio']
     assert response_json['stock'] == producto_data['stock']
-    assert 'id' in response_json # El ID debería estar presente
+    assert 'id' in response_json
 
-    # (Opcional) Verificar que el producto se guardó en la BD
-    # from models import Producto
-    # with flask_app.app_context():
-    #     producto_db = Producto.query.get(response_json['id'])
-    #     assert producto_db is not None
-    #     assert producto_db.nombre == producto_data['nombre']
+    # Verificar que el producto existe en la base de datos
+    with flask_app.app_context():
+        producto_db = Producto.query.get(response_json['id'])
+        assert producto_db is not None
+        assert producto_db.nombre == producto_data['nombre']
