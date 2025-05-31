@@ -41,14 +41,12 @@ Sigue estos pasos para configurar y ejecutar el proyecto en tu máquina local.
 
 1.  **Clona el repositorio:**
     ```bash
-    git clone https://github.com/TU_USUARIO_GITHUB/api-productos-flask.git 
-    # Reemplaza TU_USUARIO_GITHUB y el nombre del repo si es diferente
+    git clone https://github.com/https://github.com/Ramaa128/api-productos-flask-o-flask-products-api 
     ```
 
 2.  **Navega al directorio del proyecto:**
     ```bash
-    cd api-productos-flask 
-    # O el nombre que le hayas dado a tu repositorio
+    cd api-productos-flask-o-flask-products-api
     ```
 
 3.  **Crea y activa un entorno virtual:**
