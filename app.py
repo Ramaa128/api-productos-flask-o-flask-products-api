@@ -1,7 +1,7 @@
 # app.py
 import os
-from flask import Flask, request, jsonify
-from marshmallow.exceptions import ValidationError
+from flask import Flask, request, jsonify # jsonify es la función correcta de Flask
+from marshmallow.exceptions import ValidationError # Para capturar errores de validación de Marshmallow
 from flasgger import Swagger # Importar Swagger
 
 # Importaciones locales
@@ -13,26 +13,25 @@ from schemas import ma, ProductoSchema, producto_schema, productos_schema
 app = Flask(__name__)
 
 # Configuración básica de Swagger/Flasgger
-# Puedes personalizar esto mucho más según la documentación de Flasgger.
 swagger_config = {
     "headers": [],
     "specs": [
         {
-            "endpoint": 'apispec_1', # Nombre del endpoint para la especificación
-            "route": '/apispec_1.json', # Ruta donde se servirá la especificación JSON
-            "rule_filter": lambda rule: True,  # Incluir todas las reglas (endpoints)
-            "model_filter": lambda tag: True,  # Incluir todos los modelos/tags
+            "endpoint": 'apispec_1',
+            "route": '/apispec_1.json',
+            "rule_filter": lambda rule: True,
+            "model_filter": lambda tag: True,
         }
     ],
-    "static_url_path": "/flasgger_static", # Ruta para los archivos estáticos de Swagger UI
-    "swagger_ui": True, # Habilitar Swagger UI
-    "specs_route": "/apidocs/" # Ruta para acceder a Swagger UI
+    "static_url_path": "/flasgger_static",
+    "swagger_ui": True,
+    "specs_route": "/apidocs/"
 }
 
 # Inicializar Flasgger con la aplicación y la configuración
 swagger = Swagger(app, config=swagger_config)
 
-# Carga la configuración de la aplicación desde el objeto Config
+# Carga la configuración de la aplicación
 app.config.from_object(Config)
 
 # Crear la carpeta 'instance' si no existe
@@ -40,7 +39,7 @@ instance_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instan
 if not os.path.exists(instance_path):
     os.makedirs(instance_path)
 
-# Inicializar extensiones con la aplicación Flask
+# Inicializar extensiones
 db.init_app(app)
 ma.init_app(app)
 
@@ -54,7 +53,7 @@ def crear_producto():
     tags:
       - Productos
     summary: Crea un nuevo producto.
-    description: Este endpoint permite la creación de un nuevo producto proporcionando sus detalles en el cuerpo de la solicitud.
+    description: Este endpoint permite la creación de un nuevo producto proporcionando sus detalles.
     consumes:
       - application/json
     produces:
@@ -90,13 +89,11 @@ def crear_producto():
               example: 50
     responses:
       201:
-        description: Producto creado exitosamente. Devuelve el producto creado.
+        description: Producto creado exitosamente.
         schema:
-          # Flasgger intentará inferir esto de tu ProductoSchema de Marshmallow
           $ref: '#/definitions/Producto' 
       400:
         description: Error de validación en los datos de entrada.
-        # Puedes definir un esquema 'ErrorValidacion' o usar uno genérico
         schema:
           type: object
           properties:
@@ -131,7 +128,7 @@ def obtener_productos():
     tags:
       - Productos
     summary: Obtiene todos los productos.
-    description: Devuelve una lista de todos los productos almacenados en la base de datos.
+    description: Devuelve una lista de todos los productos almacenados.
     produces:
       - application/json
     responses:
@@ -140,7 +137,6 @@ def obtener_productos():
         schema:
           type: array
           items:
-            # Flasgger intentará inferir esto de tu ProductoSchema de Marshmallow
             $ref: '#/definitions/Producto' 
     """
     todos_los_productos = Producto.query.all()
@@ -149,7 +145,36 @@ def obtener_productos():
 
 @app.route('/productos/<int:id>', methods=['GET'])
 def obtener_producto(id):
-    # TODO: Añadir docstring YAML para Flasgger
+    """
+    Obtiene un producto específico por su ID.
+    ---
+    tags:
+      - Productos
+    summary: Obtiene un producto por ID.
+    description: Devuelve los detalles de un producto específico si se encuentra por su ID.
+    produces:
+      - application/json
+    parameters:
+      - name: id
+        in: path
+        description: ID del producto a obtener.
+        required: true
+        type: integer
+        format: int64 
+    responses:
+      200:
+        description: Detalles del producto encontrado.
+        schema:
+          $ref: '#/definitions/Producto'
+      404:
+        description: Producto no encontrado.
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: "Producto no encontrado"
+    """
     producto = db.session.get(Producto, id)
     if not producto:
         return jsonify({"error": "Producto no encontrado"}), 404
@@ -216,7 +241,7 @@ def handle_marshmallow_validation(err):
     return jsonify({"error": "Error de validación en los datos de entrada", "mensajes": err.messages}), 400
 
 @app.errorhandler(404)
-def handle_not_found_error(err):
+def handle_not_found_error(err): # Este manejador global se activaría si usas abort(404)
     return jsonify(error="RecursoNoEncontrado", mensaje="El recurso solicitado no fue encontrado en la API."), 404
     
 @app.errorhandler(500)
@@ -231,7 +256,7 @@ def handle_method_not_allowed(err):
 
 @app.errorhandler(400) 
 def handle_bad_request(err):
-    if isinstance(err, ValidationError):
+    if isinstance(err, ValidationError): # Evita doble manejo si ya fue capturado por el handler de ValidationError
         return handle_marshmallow_validation(err)
     mensaje = err.description if hasattr(err, 'description') and err.description else "La solicitud es incorrecta o malformada."
     return jsonify(error="SolicitudIncorrecta", mensaje=mensaje), 400
